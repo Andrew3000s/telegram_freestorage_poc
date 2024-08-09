@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Telegram File Bot</title>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 20px;
+            background-color: #f4f4f4;
+        }
+
+        h1, h2 {
+            color: #333;
+        }
+
+        form {
+            background: #fff;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 5px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+        }
+
+        input[type="text"],
+        input[type="submit"],
+        input[type="checkbox"] { 
+            padding: 8px;
+            margin-bottom: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+
+        input[type="text"],
+        input[type="submit"] {
+            width: 100%;
+        }
+
+        input[type="submit"] {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+
+        input[type="submit"]:hover {
+            background-color: #45a049;
+        }
+
+        #file-list {
+            background: #fff;
+            padding: 20px;
+            border-radius: 5px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+
+        #file-list p {
+            margin-bottom: 10px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #eee;
+        }
+
+        #file-list a {
+            color: #1e90ff;
+            text-decoration: none;
+        }
+
+        #file-list a:hover {
+            text-decoration: underline;
+        }
+
+        #statisticsChart {
+            background: #fff;
+            padding: 20px;
+            border-radius: 5px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            margin-top: 20px;
+        }
+
+        #load-more {
+            display: block;
+            margin: 20px auto;
+            padding: 10px 20px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        #load-more:hover {
+            background-color: #45a049;
+        }
+
+        /* Style for the clear buttons */
+        .clear-button {
+            background-color: #f44336; /* Red */
+            border: none;
+            color: white;
+            padding: 10px 20px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 16px;
+            margin: 4px 2px;
+            cursor: pointer;
+            border-radius: 4px;
+        }
+
+        .clear-button:hover {
+            background-color: #d32f2f; /* Darker red */
+        }
+    </style>
+</head>
+<body>
+    <h1>Telegram File Bot</h1>
+
+    <h2>Configuration</h2>
+    <form action="/update_config" method="post">
+        {% for section in config.sections() %}
+        <h3>{{ section }}</h3>
+        {% for key, value in config[section].items() %}
+        <label for="{{ key }}">{{ key }}:</label>
+        <!-- Checkbox for disabling logs -->
+        {% if key == 'disable_logs' %} 
+            <input type="checkbox" id="{{ key }}" name="{{ key }}" {% if value == 'True' %} checked {% endif %}>
+        {% else %}
+            <input type="text" id="{{ key }}" name="{{ key }}" value="{{ value }}">
+        {% endif %}
+        <br>
+        {% endfor %}
+        {% endfor %}
+        <input type="submit" value="Update Configuration">
+    </form>
+
+    <h2>Sent Files</h2>
+    <div id="file-list">
+        <!-- Sent files will be displayed here -->
+    </div>
+    <button id="load-more" style="display: none;">Load More</button>
+
+    <h2>Real-time Statistics</h2>
+    <div id="statisticsChartContainer">
+        <canvas id="statisticsChart"></canvas>
+    </div>
+
+    <h2>Actions</h2>
+    <button class="clear-button" id="clear-logs">Clear Logs</button>
+    <button class="clear-button" id="clear-json-data">Clear JSON Data</button>
+
+    <script>
+        let displayedFiles = 0;
+        const filesPerPage = 5; // Number of files to display per page
+
+        // Function to update the file list
+        function updateFileList() {
+            $.getJSON('/monitor', function (data) {
+                var fileList = $('#file-list');
+                fileList.empty();
+                displayedFiles = 0; // Reset the counter
+
+                // Sort files by last_sent in descending order (newest first)
+                data.sort((a, b) => new Date(b.last_sent) - new Date(a.last_sent));
+
+                displayFiles(data);
+            });
+        }
+
+        // Function to display a portion of the files
+        function displayFiles(data) {
+            const fileList = $('#file-list');
+            const loadMoreButton = $('#load-more');
+
+            // Display only the next 'filesPerPage' files
+            for (let i = displayedFiles; i < displayedFiles + filesPerPage && i < data.length; i++) {
+                const file = data[i];
+                var fileInfo = $('<p>');
+
+                // Include the file ID in the displayed information
+                fileInfo.text(`[${file.file_id}] ${file.last_sent} - ${file.file_path}`);
+
+                if (file.send_success) {
+                    fileInfo.append(' (Sent successfully)');
+                    if (file.forward_success) {
+                        fileInfo.append(' (Forwarded successfully)');
+                    }
+                } else {
+                    fileInfo.append(' (Error sending)');
+                }
+                if (file.encrypted) {
+                    fileInfo.append(' (Encrypted)');
+                }
+                fileInfo.append($('<a>').attr('href', '/download/' + file.file_id).text(' Download'));
+                fileList.append(fileInfo);
+            }
+
+            // Update the counter
+            displayedFiles += filesPerPage;
+
+            // Show/hide the "load more" button based on whether there are more files to display
+            if (displayedFiles < data.length) {
+                loadMoreButton.show();
+            } else {
+                loadMoreButton.hide();
+            }
+        }
+
+        // Function to update the chart data
+        function updateChartData() {
+            $.getJSON('/monitor', function (data) {
+                // Process data to extract relevant statistics
+                let processedFiles = data.length;
+                let sentFiles = data.filter(file => file.send_success).length;
+                let totalUploadedData = 0;
+                let totalProcessingTime = 0;
+                let totalUploadTime = 0; // Add totalUploadTime
+
+                data.forEach(function (file) {
+                    totalUploadedData += file.file_size || 0;
+                    totalProcessingTime += file.processing_time || 0;
+                    totalUploadTime += (file.file_size || 0) / (file.upload_speed || 1); // Calculate total upload time
+                });
+
+                // Calculate average upload speed in MB/s
+                let averageUploadSpeed = (totalUploadedData / (totalUploadTime || 1)) / 1024 / 1024;
+
+                // Calculate average processing time in seconds
+                let averageProcessingTime = (totalProcessingTime / (data.length || 1)) / 1000; // Convert milliseconds to seconds
+
+                // Convert total uploaded data to MB or GB
+                let totalUploadedDataSize = totalUploadedData / 1024 / 1024; // MB
+                let totalUploadedDataSizeUnit = "MB";
+                if (totalUploadedDataSize > 1024) {
+                    totalUploadedDataSize /= 1024; // GB
+                    totalUploadedDataSizeUnit = "GB";
+                }
+
+                // Update the chart with the new data
+                myChart.data.datasets[0].data = [
+                    processedFiles,
+                    sentFiles,
+                    averageUploadSpeed,
+                    averageProcessingTime,
+                    totalUploadedDataSize
+                ];
+
+                // Update the chart labels to reflect the units
+                myChart.data.labels = [
+                    'Processed Files',
+                    'Sent Files',
+                    'Avg. Upload Speed (MB/s)',
+                    'Avg. Processing Time (s)', 
+                    'Total Uploaded Data (' + totalUploadedDataSizeUnit + ')'
+                ];
+
+                myChart.update();
+            });
+        }
+
+        // Create the chart
+        const ctx = document.getElementById('statisticsChart').getContext('2d');
+        const myChart = new Chart(ctx, {
+            type: 'bar', 
+            data: {
+                labels: [
+                    'Processed Files',
+                    'Sent Files',
+                    'Avg. Upload Speed (MB/s)',
+                    'Avg. Processing Time (s)',
+                    'Total Uploaded Data (MB)'
+                ],
+                datasets: [{
+                    label: 'File Statistics',
+                    data: [0, 0, 0, 0, 0], 
+                    backgroundColor: [
+                        'rgba(255, 99, 132, 0.2)',
+                        'rgba(54, 162, 235, 0.2)',
+                        'rgba(255, 206, 86, 0.2)',
+                        'rgba(75, 192, 192, 0.2)',
+                        'rgba(153, 102, 255, 0.2)'
+                    ],
+                    borderColor: [
+                        'rgba(255, 99, 132, 1)',
+                        'rgba(54, 162, 235, 1)',
+                        'rgba(255, 206, 86, 1)',
+                        'rgba(75, 192, 192, 1)',
+                        'rgba(153, 102, 255, 1)'
+                    ],
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                scales: {
+                    y: {
+                        beginAtZero: true
+                    }
+                },
+                // Add onHover option to trigger tooltip on label hover
+                onHover: (event, chartElement) => {
+                    event.native.target.style.cursor = chartElement.length ? 'pointer' : 'default';
+                },
+                plugins: {
+                    tooltip: {
+                        // Trigger tooltip on both bar and label hover
+                        mode: 'nearest',
+                        intersect: false 
+                    }
+                }
+            }
+        });
+
+        // Event listener for the "load more" button
+        $('#load-more').click(function() {
+            $.getJSON('/monitor', function(data) {
+                // Sort files by last_sent in descending order (newest first)
+                data.sort((a, b) => new Date(b.last_sent) - new Date(a.last_sent));
+
+                displayFiles(data);
+            });
+        });
+
+        // Function to clear logs
+        $('#clear-logs').click(function() {
+            $.post('/clear_logs', function(data) {
+                alert(data); // Display the response from the backend
+            });
+        });
+
+        // Function to clear JSON data
+        $('#clear-json-data').click(function() {
+            $.post('/clear_json_data', function(data) {
+                alert(data); // Display the response from the backend
+                // After clearing JSON data, update the file list and chart
+                updateFileList(); 
+                updateChartData();
+            });
+        });
+
+        // Initial updates and then update every 5 seconds
+        updateFileList();
+        updateChartData();
+        setInterval(updateFileList, 5000);
+        setInterval(updateChartData, 5000);
+    </script>
+</body>
+</html>

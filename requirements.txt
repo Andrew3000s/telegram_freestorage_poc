@@ -1,0 +1,10 @@
+python-telegram-bot
+Flask
+cryptography
+certifi
+httpcore
+httpx
+pyzipper
+requests
+configparser
+zipfile
