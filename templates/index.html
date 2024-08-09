@@ -79,7 +79,7 @@
             text-decoration: underline;
         }
 
-        #statisticsChart {
+        #statisticsChart, #apiStatisticsChart {
             background: #fff;
             padding: 20px;
             border-radius: 5px;
@@ -102,9 +102,8 @@
             background-color: #45a049;
         }
 
-        /* Style for the clear buttons */
         .clear-button {
-            background-color: #f44336; /* Red */
+            background-color: #f44336;
             border: none;
             color: white;
             padding: 10px 20px;
@@ -118,7 +117,15 @@
         }
 
         .clear-button:hover {
-            background-color: #d32f2f; /* Darker red */
+            background-color: #d32f2f;
+        }
+
+        .loading-indicator {
+            display: none;
+            text-align: center;
+            margin: 20px;
+            font-size: 1.2em;
+            color: #666;
         }
     </style>
 </head>
@@ -131,7 +138,6 @@
         <h3>{{ section }}</h3>
         {% for key, value in config[section].items() %}
         <label for="{{ key }}">{{ key }}:</label>
-        <!-- Checkbox for disabling logs -->
         {% if key == 'disable_logs' %} 
             <input type="checkbox" id="{{ key }}" name="{{ key }}" {% if value == 'True' %} checked {% endif %}>
         {% else %}
@@ -148,11 +154,19 @@
         <!-- Sent files will be displayed here -->
     </div>
     <button id="load-more" style="display: none;">Load More</button>
+    <div class="loading-indicator" id="loading-files">Loading files...</div>
 
     <h2>Real-time Statistics</h2>
     <div id="statisticsChartContainer">
         <canvas id="statisticsChart"></canvas>
     </div>
+    <div class="loading-indicator" id="loading-stats">Updating statistics...</div>
+
+    <h2>API Statistics</h2>
+    <div id="apiStatisticsChartContainer">
+        <canvas id="apiStatisticsChart"></canvas>
+    </div>
+    <div class="loading-indicator" id="loading-api-stats">Updating API statistics...</div>
 
     <h2>Actions</h2>
     <button class="clear-button" id="clear-logs">Clear Logs</button>
@@ -160,33 +174,34 @@
 
     <script>
         let displayedFiles = 0;
-        const filesPerPage = 5; // Number of files to display per page
+        const filesPerPage = 5;
 
-        // Function to update the file list
         function updateFileList() {
+            $('#loading-files').show();
             $.getJSON('/monitor', function (data) {
+                $('#loading-files').hide();
+                console.log('File list updated:', data); // Debug message
                 var fileList = $('#file-list');
                 fileList.empty();
-                displayedFiles = 0; // Reset the counter
+                displayedFiles = 0;
 
-                // Sort files by last_sent in descending order (newest first)
                 data.sort((a, b) => new Date(b.last_sent) - new Date(a.last_sent));
 
                 displayFiles(data);
+            }).fail(function(jqXHR, textStatus, errorThrown) {
+                $('#loading-files').hide();
+                console.error('Failed to update file list:', textStatus, errorThrown); // Debug message
             });
         }
 
-        // Function to display a portion of the files
         function displayFiles(data) {
             const fileList = $('#file-list');
             const loadMoreButton = $('#load-more');
 
-            // Display only the next 'filesPerPage' files
             for (let i = displayedFiles; i < displayedFiles + filesPerPage && i < data.length; i++) {
                 const file = data[i];
                 var fileInfo = $('<p>');
 
-                // Include the file ID in the displayed information
                 fileInfo.text(`[${file.file_id}] ${file.last_sent} - ${file.file_path}`);
 
                 if (file.send_success) {
@@ -204,10 +219,8 @@
                 fileList.append(fileInfo);
             }
 
-            // Update the counter
             displayedFiles += filesPerPage;
 
-            // Show/hide the "load more" button based on whether there are more files to display
             if (displayedFiles < data.length) {
                 loadMoreButton.show();
             } else {
@@ -215,7 +228,6 @@
             }
         }
 
-        // Function to update the chart data
         function updateChartData() {
             $.getJSON('/monitor', function (data) {
                 // Process data to extract relevant statistics
@@ -259,7 +271,7 @@
                     'Processed Files',
                     'Sent Files',
                     'Avg. Upload Speed (MB/s)',
-                    'Avg. Processing Time (s)', 
+                    'Avg. Processing Time (s)',
                     'Total Uploaded Data (' + totalUploadedDataSizeUnit + ')'
                 ];
 
@@ -267,7 +279,6 @@
             });
         }
 
-        // Create the chart
         const ctx = document.getElementById('statisticsChart').getContext('2d');
         const myChart = new Chart(ctx, {
             type: 'bar', 
@@ -305,13 +316,11 @@
                         beginAtZero: true
                     }
                 },
-                // Add onHover option to trigger tooltip on label hover
                 onHover: (event, chartElement) => {
                     event.native.target.style.cursor = chartElement.length ? 'pointer' : 'default';
                 },
                 plugins: {
                     tooltip: {
-                        // Trigger tooltip on both bar and label hover
                         mode: 'nearest',
                         intersect: false 
                     }
@@ -319,38 +328,92 @@
             }
         });
 
-        // Event listener for the "load more" button
+        // API Statistics Chart
+        const apiCtx = document.getElementById('apiStatisticsChart').getContext('2d');
+        const apiChart = new Chart(apiCtx, {
+            type: 'line',
+            data: {
+                labels: [], // Time labels
+                datasets: [{
+                    label: 'Requests per Second',
+                    data: [],
+                    borderColor: 'rgba(75, 192, 192, 1)',
+                    fill: false
+                },
+                {
+                    label: 'Average Response Time (ms)',
+                    data: [],
+                    borderColor: 'rgba(255, 206, 86, 1)',
+                    fill: false
+                },
+                {
+                    label: 'Errors per Second',
+                    data: [],
+                    borderColor: 'rgba(255, 99, 132, 1)',
+                    fill: false
+                }]
+            },
+            options: {
+                scales: {
+                    y: {
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+
+        function updateApiChartData() {
+            $('#loading-api-stats').show();
+            $.getJSON('/api_stats', function (data) {
+                $('#loading-api-stats').hide();
+                apiChart.data.labels.push(new Date().toLocaleTimeString());
+                apiChart.data.datasets[0].data.push(data.requestsPerSecond);
+                apiChart.data.datasets[1].data.push(data.averageResponseTime);
+                apiChart.data.datasets[2].data.push(data.errorsPerSecond);
+
+                // Limit the number of data points displayed
+                if (apiChart.data.labels.length > 10) {
+                    apiChart.data.labels.shift();
+                    apiChart.data.datasets.forEach(dataset => {
+                        dataset.data.shift();
+                    });
+                }
+
+                apiChart.update();
+            }).fail(function(jqXHR, textStatus, errorThrown) {
+                $('#loading-api-stats').hide();
+                console.error('Failed to update API stats:', textStatus, errorThrown); // Debug message
+            });
+        }
+
         $('#load-more').click(function() {
             $.getJSON('/monitor', function(data) {
-                // Sort files by last_sent in descending order (newest first)
                 data.sort((a, b) => new Date(b.last_sent) - new Date(a.last_sent));
-
                 displayFiles(data);
             });
         });
 
-        // Function to clear logs
         $('#clear-logs').click(function() {
             $.post('/clear_logs', function(data) {
-                alert(data); // Display the response from the backend
+                alert(data);
             });
         });
 
-        // Function to clear JSON data
         $('#clear-json-data').click(function() {
             $.post('/clear_json_data', function(data) {
-                alert(data); // Display the response from the backend
-                // After clearing JSON data, update the file list and chart
+                alert(data);
                 updateFileList(); 
                 updateChartData();
+                updateApiChartData();
             });
         });
 
-        // Initial updates and then update every 5 seconds
         updateFileList();
         updateChartData();
+        updateApiChartData();
         setInterval(updateFileList, 5000);
         setInterval(updateChartData, 5000);
+        setInterval(updateApiChartData, 5000);
     </script>
 </body>
 </html>
