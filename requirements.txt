@@ -8,3 +8,4 @@ pyzipper
 requests
 configparser
 zipfile
+aiolimiter
