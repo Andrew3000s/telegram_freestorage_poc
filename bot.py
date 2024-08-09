@@ -26,6 +26,9 @@ from aiolimiter import AsyncLimiter
 # --- Configuration ---
 config = configparser.ConfigParser()
 config.read('config/config.ini')
+config.read_dict({'Telegram': {'token': '', 'chat_id': '0', 'enable_forward': 'False'}, 
+                  'General': {'folders_to_monitor': '', 'check_interval': '60', 'log_retention_days': '7', 
+                              'enable_encryption': 'False', 'compression_level': 'default', 'disable_logs': 'False'}})
 
 # Telegram Settings
 TOKEN = config['Telegram']['token']
