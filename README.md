@@ -1,4 +1,3 @@
-
 # Telegram File Bot (Proof of Concept)
 
 ## Disclaimer
@@ -19,6 +18,7 @@ This repository contains a proof-of-concept (PoC) implementation of a Telegram b
 - **File Size Caching:**  To optimize the upload process, the bot can create and use a cache of file sizes to prioritize sending smaller files first. 
 - **Logging Control:** The bot and its accompanying web interface provide options to enable or disable logging, allowing for flexible control over the level of detail recorded.
 - **Web Interface for Management:** A Flask-based web application provides a user interface to monitor the bot's activities, view file history, download uploaded files, and manage configuration settings.
+- **Real-Time Statistics:** The web interface displays real-time statistics about the bot's performance, including the number of processed and sent files, average upload speed, and average processing time.
 
 ## Technical Implementation
 
@@ -29,6 +29,7 @@ This repository contains a proof-of-concept (PoC) implementation of a Telegram b
 - File hashing is performed using the `hashlib` library.
 - Compression and encryption are handled using the `zipfile` (for standard compression) and `pyzipper` (for encrypted archives) libraries.
 - Configuration settings are read from a `config.ini` file using the `configparser` library.
+- Rate limiting for Telegram API calls is implemented using the `aiolimiter` library.
 
 **Web Backend (`flask_backend.py`)**
 
@@ -61,6 +62,7 @@ pyzipper
 requests
 configparser
 zipfile
+aiolimiter
 ```
 
 **Additional Installation Steps**
@@ -136,7 +138,7 @@ zipfile
    enable_forward = False ; Set to True to enable forwarding
 
    [General]
-   folders_to_monitor = /path/to/your/folder1, /path/to/your/folder2  ; Comma-separated paths (only one path if you need it)
+   folders_to_monitor = /path/to/your/folder1, /path/to/your/folder2  ; Comma-separated paths
    check_interval = 60 ; Check for new files every 60 seconds
    log_retention_days = 7 ; Keep log files for 7 days
    enable_encryption = False ; Set to True to enable encryption for zipped files
@@ -173,6 +175,7 @@ zipfile
 1. **Start the bot and backend:** Follow the installation instructions above.
 2. **Add files to the monitored folders:** The bot will automatically detect, process, and upload any new or modified files in the specified directories.
 3. **Access the Web Interface:** Open a web browser and go to `http://127.0.0.1:5000/` (or the address where your Flask backend is running) to monitor the bot's activity, view file history, download files, and manage settings.
+
 
 ## API Documentation
 
@@ -261,6 +264,7 @@ The Telegram File Bot exposes several API endpoints through its Flask backend. T
 
 Note: All endpoints except for `/monitor` and `/download/<file_id>` require authentication in a production environment. Ensure proper security measures are implemented before exposing these endpoints publicly.
 
+
 ## Security Considerations
 
 **Bot Token:** 
@@ -302,15 +306,15 @@ Remember, this is a proof-of-concept project and may not implement all security 
 ## Images
 
 
-![image](https://github.com/user-attachments/assets/77b46052-7243-477e-a6ff-a440545d798b)
-![image](https://github.com/user-attachments/assets/be580c2c-11af-403e-b502-a068fd30deb8)
-![image](https://github.com/user-attachments/assets/cfacfa01-2790-4b29-b1fa-b8bb65176ab6)
-![image](https://github.com/user-attachments/assets/df6aa6da-7e05-42ec-bf29-95e9ad537e9f)
+![image](https://github.com/Andrew3000s/telegram_freestorage_poc/blob/main/images/bot_in_action.png)
+![image](https://github.com/Andrew3000s/telegram_freestorage_poc/blob/main/images/server_in_action.png)
+![image](https://github.com/Andrew3000s/telegram_freestorage_poc/blob/main/images/telegram.png)
+![image](https://github.com/Andrew3000s/telegram_freestorage_poc/blob/main/images/web_interface.png)
 
 
 ## Contributing
 
-Contributions to this project are welcome! If you have ideas for improvements, bug fixes, or new features, please feel free to do it.
+Contributions to this project are welcome! If you have ideas for improvements, bug fixes, or new features, please feel free to submit a pull request.
 
 ## License
 
