@@ -168,6 +168,98 @@ zipfile
 - Ensure that the folders specified in `folders_to_monitor` exist and are accessible to the bot. 
 - Choose a strong and unique password for `zip_password` if you enable encryption. 
 
+## Usage
+
+1. **Start the bot and backend:** Follow the installation instructions above.
+2. **Add files to the monitored folders:** The bot will automatically detect, process, and upload any new or modified files in the specified directories.
+3. **Access the Web Interface:** Open a web browser and go to `http://127.0.0.1:5000/` (or the address where your Flask backend is running) to monitor the bot's activity, view file history, download files, and manage settings.
+
+## API Documentation
+
+The Telegram File Bot exposes several API endpoints through its Flask backend. These endpoints allow for interaction with the bot's functionality and retrieval of information.
+
+### 1. Update Configuration
+
+- **Endpoint:** `/update_config`
+- **Method:** POST
+- **Description:** Updates the bot's configuration based on form data.
+- **Request Body:** Form data containing configuration key-value pairs
+- **Response:** Redirects to the index page on success
+
+### 2. Monitor File History
+
+- **Endpoint:** `/monitor`
+- **Method:** GET
+- **Description:** Retrieves the current file history.
+- **Response:** JSON array of file history objects
+  ```json
+  [
+    {
+      "file_path": "/path/to/file",
+      "hash": "file_hash",
+      "last_sent": "2023-08-09T12:34:56",
+      "send_success": true,
+      "encrypted": false,
+      "file_id": 1,
+      "file_size": 1024,
+      "processing_time": 1.5,
+      "upload_speed": 512
+    },
+    // ... more file entries
+  ]
+  ```
+
+### 3. Download File
+
+- **Endpoint:** `/download/<file_id>`
+- **Method:** GET
+- **Description:** Initiates download of a specific file.
+- **Parameters:** 
+  - `file_id`: The ID of the file to download
+- **Response:** File download or error message
+
+### 4. Clear Logs
+
+- **Endpoint:** `/clear_logs`
+- **Method:** POST
+- **Description:** Clears both bot and backend log files.
+- **Response:** Success message or error details
+
+### 5. Clear JSON Data
+
+- **Endpoint:** `/clear_json_data`
+- **Method:** POST
+- **Description:** Clears all JSON data files including bot history, backend history, and file size cache.
+- **Response:** Success message or error details
+
+### 6. File History Update
+
+- **Endpoint:** `/file_history`
+- **Method:** POST
+- **Description:** Updates the file history with data received from the Telegram bot.
+- **Request Body:** JSON object containing file history data
+- **Response:** Success message or error status
+
+### 7. Handle Event
+
+- **Endpoint:** `/event`
+- **Method:** POST
+- **Description:** Handles events sent from the bot, such as successful file uploads.
+- **Request Body:** JSON object containing event data
+  ```json
+  {
+    "type": "success",
+    "file": "filename.ext",
+    "hash": "file_hash",
+    "file_id": 1,
+    "file_size": 1024,
+    "processing_time": 1.5,
+    "upload_speed": 512
+  }
+  ```
+- **Response:** Success message or error status
+
+Note: All endpoints except for `/monitor` and `/download/<file_id>` require authentication in a production environment. Ensure proper security measures are implemented before exposing these endpoints publicly.
 
 ## Security Considerations
 
@@ -206,12 +298,6 @@ zipfile
 
 Remember, this is a proof-of-concept project and may not implement all security best practices required for a production environment. Use caution when deploying this bot, especially in scenarios involving sensitive data.
 
-
-## Usage
-
-1. **Start the bot and backend:** Follow the installation instructions above.
-2. **Add files to the monitored folders:** The bot will automatically detect, process, and upload any new or modified files in the specified directories.
-3. **Access the Web Interface:** Open a web browser and go to `http://127.0.0.1:5000/` (or the address where your Flask backend is running) to monitor the bot's activity, view file history, download files, and manage settings.
 
 ## Images
 
