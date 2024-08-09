@@ -215,11 +215,11 @@ Remember, this is a proof-of-concept project and may not implement all security 
 
 ## Images
 
-```
-![Bot Screenshot](images/bot_in_action.png)
-![Server Screenshot](images/server_in_action.png)
-![Web Interface](images/web_interface.png) 
-```
+
+![image](https://github.com/user-attachments/assets/77b46052-7243-477e-a6ff-a440545d798b)
+![image](https://github.com/user-attachments/assets/be580c2c-11af-403e-b502-a068fd30deb8)
+![image](https://github.com/user-attachments/assets/df6aa6da-7e05-42ec-bf29-95e9ad537e9f)
+
 
 ## Contributing
 
