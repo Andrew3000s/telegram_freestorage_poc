@@ -17,6 +17,7 @@ This repository contains a proof-of-concept (PoC) implementation of a Telegram b
 - **Large File Splitting:** Files exceeding Telegram's file size limit are automatically split into smaller parts and uploaded individually. The bot provides instructions to the user on how to reassemble the split files. 
 - **File Size Caching:**  To optimize the upload process, the bot can create and use a cache of file sizes to prioritize sending smaller files first. 
 - **Logging Control:** The bot and its accompanying web interface provide options to enable or disable logging, allowing for flexible control over the level of detail recorded.
+- **Log Rotation:** Log files are automatically rotated to prevent them from growing too large.
 - **Web Interface for Management:** A Flask-based web application provides a user interface to monitor the bot's activities, view file history, download uploaded files, and manage configuration settings.
 - **Real-Time Statistics:** The web interface displays real-time statistics about the bot's performance, including the number of processed and sent files, average upload speed, and average processing time.
 
@@ -30,6 +31,8 @@ This repository contains a proof-of-concept (PoC) implementation of a Telegram b
 - Compression and encryption are handled using the `zipfile` (for standard compression) and `pyzipper` (for encrypted archives) libraries.
 - Configuration settings are read from a `config.ini` file using the `configparser` library.
 - Rate limiting for Telegram API calls is implemented using the `aiolimiter` library.
+- Type hinting is used throughout the code for improved readability and error detection.
+- The `aiohttp` library is used for making asynchronous HTTP requests to the backend. 
 
 **Web Backend (`flask_backend.py`)**
 
@@ -63,6 +66,7 @@ requests
 configparser
 zipfile
 aiolimiter
+aiohttp 
 ```
 
 **Additional Installation Steps**
@@ -168,7 +172,7 @@ aiolimiter
 
 - Use forward slashes (/) for file paths, even on Windows.
 - Ensure that the folders specified in `folders_to_monitor` exist and are accessible to the bot. 
-- Choose a strong and unique password for `zip_password` if you enable encryption. 
+- Choose a strong and unique password for `zip_password` if you enable encryption.  **It's highly recommended to store this password in an environment variable or use a secrets management system instead of hardcoding it in the `config.ini` file.** 
 
 ## Usage
 
@@ -277,7 +281,7 @@ Note: All endpoints except for `/monitor` and `/download/<file_id>` require auth
 
 - If you enable file encryption, choose a **strong, unique password**. 
 - **Do not reuse passwords** from other services. 
-- Consider using a **password manager** to generate and store a secure password.
+- **Instead of hardcoding the password in the `config.ini` file, store it securely using an environment variable or a secrets management system.**
 
 **Monitored Folders:**
 
@@ -305,12 +309,10 @@ Remember, this is a proof-of-concept project and may not implement all security 
 
 ## Images
 
-
 ![image](https://github.com/Andrew3000s/telegram_freestorage_poc/blob/main/images/bot_in_action.png)
 ![image](https://github.com/Andrew3000s/telegram_freestorage_poc/blob/main/images/server_in_action.png)
 ![image](https://github.com/Andrew3000s/telegram_freestorage_poc/blob/main/images/telegram.png)
 ![image](https://github.com/Andrew3000s/telegram_freestorage_poc/blob/main/images/web_interface.png)
-
 
 ## Contributing
 
