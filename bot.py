@@ -18,6 +18,12 @@ import aiohttp
 from aiolimiter import AsyncLimiter
 from logging.handlers import RotatingFileHandler
 
+# --- DISCLAIMER ---
+# This script is for academic and research purposes only.
+# The author does not endorse or encourage the use of this script in violation
+# of the Terms of Service of any platform, including Telegram.
+# Use of this script is at your own risk.
+
 # --- Configuration ---
 config = configparser.ConfigParser()
 
