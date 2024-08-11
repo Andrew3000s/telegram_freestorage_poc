@@ -10,7 +10,7 @@ from datetime import datetime, timedelta
 import time
 
 # Initialize Flask app
-app = Flask(__name__)
+app = Flask(__name__, static_folder='templates', template_folder='templates')
 
 # Global variables to store events and file history
 events = []
@@ -63,26 +63,21 @@ def index():
 
 @app.route('/update_config', methods=['POST'])
 def update_config():
-    """Updates the configuration file based on form data from the web interface."""
     config = configparser.ConfigParser()
     config.read('config/config.ini')
 
     for section in config.sections():
         for key in config[section]:
-            if key in request.form:
-                config[section][key] = request.form[key]
             if key == 'disable_logs':
-                config['General']['disable_logs'] = 'True' if request.form.get('disable_logs') == 'on' else 'False'
+                value = request.form.get('disable_logs')
+                config[section][key] = 'True' if value else 'False'
+            else:
+                config[section][key] = request.form[key]
 
     with open('config/config.ini', 'w') as configfile:
         config.write(configfile)
 
-    if config['General'].getboolean('disable_logs'):
-        logger.setLevel(logging.CRITICAL)
-    else:
-        logger.setLevel(logging.DEBUG)
-
-    return redirect(url_for('index'))
+    return redirect(url_for('index'), code=302)
 
 
 @app.route('/monitor')
@@ -132,12 +127,12 @@ def download(file_id):
 
 @app.route('/file_history', methods=['POST'])
 def update_file_history():
+    """Updates the file history with data received from the bot."""
     global file_history
     data = request.get_json()
     if data:
         file_history = data
-        with open('data/backend_file_history.json', 'w') as f:
-            json.dump(file_history, f)
+        save_file_history()
         return "File history updated", 200
     else:
         return "Invalid data", 400
@@ -145,6 +140,7 @@ def update_file_history():
 
 @app.route('/event', methods=['POST'])
 def handle_event():
+    """Handles events sent from the bot."""
     global events, file_history
     data = request.get_json()
     if data:
@@ -220,17 +216,19 @@ def clear_json_data():
                 json.dump({}, f)
             logger.info(f"Cleared file size cache: {cache_path}")
 
-        file_history = {}
+        file_history = {}  # Clear the in-memory file history
         return "JSON data cleared successfully!"
     except Exception as e:
         logger.error(f"Error clearing JSON data: {str(e)}")
         return f"Error clearing JSON data: {str(e)}", 500
+
 
 @app.route('/api_stats')
 def get_api_stats():
     """Provides API statistics data as JSON."""
     update_api_stats()
     return jsonify(api_stats)
+
 
 # --- Helper Functions ---
 
@@ -239,17 +237,21 @@ def update_api_stats():
     global api_stats
     elapsed_time = time.time() - api_stats['startTime']
     api_stats['requestsPerSecond'] = round(api_stats['totalRequests'] / elapsed_time, 2)
-    api_stats['averageResponseTime'] = round(api_stats['averageResponseTime'] / api_stats['totalRequests'], 2) if api_stats['totalRequests'] > 0 else 0
+    api_stats['averageResponseTime'] = round(
+        api_stats['averageResponseTime'] / api_stats['totalRequests'], 2
+    ) if api_stats['totalRequests'] > 0 else 0
     api_stats['errorsPerSecond'] = round(api_stats['totalErrors'] / elapsed_time, 2)
+
 
 # --- Request Tracking ---
 
 @app.before_request
 def before_request():
-    """Increments the total requests counter."""
+    """Increments the total requests counter and records the start time."""
     global api_stats
     api_stats['totalRequests'] += 1
     request.start_time = time.time()
+
 
 @app.after_request
 def after_request(response):

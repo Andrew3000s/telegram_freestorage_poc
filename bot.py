@@ -11,21 +11,17 @@ from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Tuple, Union
 from telegram import Bot, InputFile
 from telegram.constants import ParseMode
-from telegram.error import TelegramError
+from telegram.error import TelegramError, NetworkError
 from telegram.helpers import escape_markdown
 import pyzipper
 import aiohttp
 from aiolimiter import AsyncLimiter
 from logging.handlers import RotatingFileHandler
 
-# --- DISCLAIMER ---
-# This script is for academic and research purposes only.
-# The author does not endorse or encourage the use of this script in violation
-# of the Terms of Service of any platform, including Telegram.
-# Use of this script is at your own risk.
-
 # --- Configuration ---
 config = configparser.ConfigParser()
+
+logging.basicConfig(encoding='utf-8')
 
 config_file_path = 'config/config.ini'
 if not os.path.exists(config_file_path):
@@ -78,13 +74,13 @@ if ENABLE_ENCRYPTION and not ZIP_PASSWORD:
 os.makedirs('logs', exist_ok=True)
 log_formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 log_file = 'logs/bot_log.txt'
-log_handler = RotatingFileHandler(log_file, maxBytes=5*1024*1024, backupCount=5)
+log_handler = RotatingFileHandler(log_file, maxBytes=5*1024*1024, backupCount=5, encoding='utf-8')
 log_handler.setFormatter(log_formatter)
 logger = logging.getLogger()
 
 if DISABLE_LOGS:
     logger.setLevel(logging.CRITICAL)
-    logger.removeHandler(log_handler)
+    logger.removeHandler(log_handler)  # Remove handler to completely disable logging
 else:
     logger.setLevel(logging.DEBUG)
     logger.addHandler(log_handler)
@@ -148,7 +144,8 @@ async def send_file(file_path: str, caption: str, part_number: Optional[int] = N
             async with media_limiter:
                 escaped_caption = escape_markdown(caption, version=2)
                 if part_number is not None and total_parts is not None:
-                    escaped_caption += f"\n\\(Part {part_number}/{total_parts}\\)"
+                # Escape the parentheses here
+                 escaped_caption += f"\n\\(Part {part_number}/{total_parts}\\)"
 
                 with open(file_path, 'rb') as file:
                     message = await bot.send_document(chat_id=CHAT_ID, 
@@ -165,8 +162,10 @@ async def send_file(file_path: str, caption: str, part_number: Optional[int] = N
                     del error_messages[file_path]
 
                 return True
-        except TelegramError as e:
-            if hasattr(e, 'response') and e.response.status_code == 429:
+        except (TelegramError, NetworkError) as e:
+            if isinstance(e, NetworkError):
+                logger.warning(f"Network error: {e}. Retrying in {retry_delay} seconds.")
+            elif hasattr(e, 'response') and e.response.status_code == 429:
                 retry_after = int(e.response.headers.get('Retry-After', 1))
                 logger.warning(f"Flood control exceeded. Retrying in {retry_after} seconds.")
                 await asyncio.sleep(retry_after)
@@ -382,16 +381,17 @@ async def process_file(file_path: str) -> None:
 
 def clean_old_logs() -> None:
     """Deletes old log files based on the configured retention period."""
-    current_time = datetime.now()
-    deletion_time = current_time - timedelta(days=LOG_RETENTION_DAYS)
+    if LOG_RETENTION_DAYS > 0:  # Only clean logs if retention is enabled
+        current_time = datetime.now()
+        deletion_time = current_time - timedelta(days=LOG_RETENTION_DAYS)
 
-    for filename in os.listdir('logs'):
-        if filename.endswith('.txt') and filename.startswith('bot_log'):
-            file_path = os.path.join('logs', filename)
-            file_time = datetime.fromtimestamp(os.path.getctime(file_path))
-            if file_time < deletion_time:
-                os.remove(file_path)
-                logger.info(f"Log file deleted for privacy: {filename}")
+        for filename in os.listdir('logs'):
+            if filename.endswith('.txt') and filename.startswith('bot_log'):
+                file_path = os.path.join('logs', filename)
+                file_time = datetime.fromtimestamp(os.path.getctime(file_path))
+                if file_time < deletion_time:
+                    os.remove(file_path)
+                    logger.info(f"Log file deleted for privacy: {filename}")
 
 def build_file_size_cache() -> None:
     """Creates a cache of file sizes for faster processing."""
@@ -444,8 +444,7 @@ async def main() -> None:
 
             if ENABLE_CACHE:
                 build_file_size_cache()
-                # Sort by size, smallest first
-                sorted_files = sorted(file_size_cache, key=file_size_cache.get)  
+                sorted_files = sorted(file_size_cache, key=file_size_cache.get)
             else:
                 sorted_files = []
                 for folder in FOLDERS_TO_MONITOR:
@@ -453,7 +452,7 @@ async def main() -> None:
                         for file in files:
                             file_path = os.path.join(root, file)
                             sorted_files.append(file_path)
-                sorted_files.sort(key=os.path.getsize) # Sort by size, smallest first
+                sorted_files.sort(key=os.path.getsize)
 
             for file_path in sorted_files:
                 await process_file(file_path)
@@ -468,4 +467,4 @@ async def main() -> None:
             await asyncio.sleep(CHECK_INTERVAL)
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    asyncio.get_event_loop().run_until_complete(main())
